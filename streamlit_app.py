@@ -4,7 +4,7 @@ import joblib
 import numpy as np
 
 st.set_page_config(page_title="SAR/USD Predictor", layout="wide")
-st.title("Saudi Arabia(SAR) / USD Exchange Rate Predictor")
+st.title("Saudi Riyal(SAR) / USD Exchange Rate Predictor")
 
 # --------------------------------------------------
 # 1. Load cleaned data (CSV or pickle fallback)
