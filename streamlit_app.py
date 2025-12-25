@@ -1,20 +1,26 @@
 import streamlit as st
 import pandas as pd
 import joblib
-from sklearn.metrics import mean_squared_error, r2_score
 import numpy as np
 
 st.set_page_config(page_title="SAR/USD Predictor", layout="wide")
 st.title("🇸🇦 Saudi Riyal (SAR) / USD Exchange Rate Predictor")
 
 # --------------------------------------------------
-# 1. Load cleaned data with encoding fallback
+# 1. Load cleaned data (CSV or pickle fallback)
 # --------------------------------------------------
 try:
     df = pd.read_csv("SAR_USD_clean.csv", encoding="utf-8")
-except UnicodeDecodeError:
-    df = pd.read_csv("SAR_USD_clean.csv", encoding="ISO-8859-1")
+except (UnicodeDecodeError, pd.errors.ParserError):
+    try:
+        df = pd.read_csv("SAR_USD_clean.csv", encoding="ISO-8859-1")
+    except:
+        df = pd.read_pickle("SAR_USD_clean.csv")  # if CSV is actually a pickle
 
+# Clean column names
+df.columns = df.columns.str.strip()
+
+# Convert date
 df["Date"] = pd.to_datetime(df["Date"])
 df = df.sort_values("Date").reset_index(drop=True)
 df = df[(df["Date"] >= "2015-01-01") & (df["Date"] <= "2022-12-31")].reset_index(drop=True)
@@ -36,7 +42,7 @@ features = [
 ]
 
 # --------------------------------------------------
-# 3. Prepare dataset for evaluation
+# 3. Feature engineering
 # --------------------------------------------------
 df["lag_1"]  = df["SAR=X"].shift(1)
 df["lag_7"]  = df["SAR=X"].shift(7)
@@ -53,32 +59,14 @@ df["std_30"] = df["SAR=X"].rolling(30).std()
 
 df = df.dropna().reset_index(drop=True)
 
-X = df[features]
-y = df["SAR=X"]
-
-split = int(len(df) * 0.8)
-X_train, X_val = X.iloc[:split], X.iloc[split:]
-y_train, y_val = y.iloc[:split], y.iloc[split:]
-
 # --------------------------------------------------
-# 4. Evaluate model
-# --------------------------------------------------
-y_pred = model.predict(X_val)
-mse = mean_squared_error(y_val, y_pred)
-r2 = r2_score(y_val, y_pred)
-
-st.subheader("📊 Model Evaluation")
-st.write(f"Mean Squared Error (MSE): {mse:.5f}")
-st.write(f"R² Score: {r2:.5f}")
-
-# --------------------------------------------------
-# 5. Historical SAR/USD chart
+# 4. Historical chart
 # --------------------------------------------------
 st.subheader("📈 Historical SAR/USD Exchange Rate")
 st.line_chart(df.set_index("Date")["SAR=X"])
 
 # --------------------------------------------------
-# 6. Predict next-day/year SAR/USD
+# 5. Next-day prediction
 # --------------------------------------------------
 st.subheader("🔮 Next-Day Prediction")
 
@@ -107,7 +95,7 @@ next_pred = model.predict(next_features)[0]
 st.write(f"Predicted SAR/USD for next day/year: **{next_pred:.4f}**")
 
 # --------------------------------------------------
-# 7. User input for last-known SAR adjustment
+# 6. User input for last-known SAR adjustment
 # --------------------------------------------------
 st.subheader("✏️ Adjust Last Known SAR Value")
 user_sar = st.number_input("Enter last known SAR/USD:", value=float(last_row["SAR=X"]))
@@ -119,7 +107,7 @@ next_pred_adjusted = model.predict(next_features_adjusted)[0]
 st.write(f"Predicted SAR/USD with adjusted last value: **{next_pred_adjusted:.4f}**")
 
 # --------------------------------------------------
-# 8. Country info
+# 7. Country info
 # --------------------------------------------------
 st.subheader("🌍 Country Information")
 st.write("Country: **Saudi Arabia (SAR)**")
